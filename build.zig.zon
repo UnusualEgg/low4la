@@ -1,0 +1,12 @@
+.{
+    .name = .low4la,
+    .version = "0.15.1",
+    .dependencies = .{
+        .lola = .{
+            .url = "git+https://github.com/UnusualEgg/LoLa#61c4764a00e958542dc52c6f68a5bc4c840930c9",
+            .hash = "lola-0.1.0-zO-wvW64bQFVucrvtUTfXoyvuuJfujukGjq1tUAaLH8u",
+        },
+    },
+    .paths = .{""},
+    .fingerprint = 0xf3e12e12759200f8,
+}
