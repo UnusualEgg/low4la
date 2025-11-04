@@ -30,8 +30,8 @@ pub fn build(b: *std.Build) !void {
         .root_module = exe_mod,
     });
 
-    exe.entry = .{ .symbol_name = "start" };
-    exe.root_module.export_symbol_names = &[_][]const u8{ "start", "update", "_start" };
+    exe.entry = .disabled;
+    exe.root_module.export_symbol_names = &[_][]const u8{ "start", "update" };
     exe.import_memory = true;
     exe.initial_memory = 65536;
     exe.max_memory = 65536;
