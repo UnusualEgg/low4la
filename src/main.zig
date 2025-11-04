@@ -64,46 +64,47 @@ fn trace_writer(buffer: []u8) std.Io.Writer {
 }
 var trace_buffer: [1024]u8 = undefined;
 var output = trace_writer(&trace_buffer);
-// fn run() !void {
-//     const limit = 100;
+fn run() !void {
+    const limit = 100;
 
-//     const result = vm.execute(limit) catch |err| {
-//         if (@errorReturnTrace()) |err_trace| {
-//             const tree: *std.builtin.StackTrace = err_trace;
-//             tree.format(&output) catch unreachable;
-//         } else {
-//             output.print("Panic during execution: {s}\n", .{@errorName(err)}) catch unreachable;
-//         }
-//         w4.trace("Call stack:\n");
+    const result = vm.execute(limit) catch |err| {
+        if (@errorReturnTrace()) |err_trace| {
+            const tree: *std.builtin.StackTrace = err_trace;
+            tree.format(&output) catch unreachable;
+        } else {
+            output.print("Panic during execution: {s}\n", .{@errorName(err)}) catch unreachable;
+        }
+        w4.trace("Call stack:\n");
 
-//         vm.printStackTrace(&output) catch {
-//             w4.trace("can't print stack trace\n");
-//         };
-//         return error.VMError;
-//     };
+        vm.printStackTrace(&output) catch {
+            w4.trace("can't print stack trace\n");
+        };
+        return error.VMError;
+    };
 
-//     pool.clearUsageCounters();
+    pool.clearUsageCounters();
 
-//     try pool.walkEnvironment(env);
-//     try pool.walkVM(vm);
+    try pool.walkEnvironment(env);
+    try pool.walkVM(vm);
 
-//     pool.collectGarbage();
+    pool.collectGarbage();
 
-//     switch (result) {
-//         .completed => {
-//             running = false;
-//             return error.Completed;
-//         },
-//         .exhausted => {},
-//         .paused => {},
-//     }
-// }
+    switch (result) {
+        .completed => {
+            running = false;
+            return error.Completed;
+        },
+        .exhausted => {},
+        .paused => {},
+    }
+}
 export fn update() void {
     if (running) {
-        // run() catch |err| {
-        //     output.print("error: {s}\n", .{@errorName(err)}) catch unreachable;
-        //     running = false;
-        // };
+        run() catch |err| {
+            output.print("error: {s}\n", .{@errorName(err)}) catch unreachable;
+            running = false;
+            output.flush() catch unreachable;
+        };
     } else {
         w4.DRAW_COLORS.* = 2;
         w4.text("Program has ended", 0, 0);
