@@ -37,6 +37,22 @@ pub fn build(b: *std.Build) !void {
     exe.max_memory = 65536;
     exe.stack_size = 14752;
 
+    const native = b.resolveTargetQuery(try std.Build.parseTargetQuery(.{}));
+    const lola_native = b.dependency("lola", .{
+        .optimize = optimize,
+        .target = native,
+    });
+    const lola_exe_mod = lola_native.module("exe_mod");
+    const lola_exe = b.addExecutable(.{
+        .root_module = lola_exe_mod,
+        .name = "lola",
+    });
+    const comp = b.addRunArtifact(lola_exe);
+    comp.addArg("compile");
+    comp.addDirectoryArg(b.path("prg/main.lola"));
+    comp.addArg("-o");
+    comp.addDirectoryArg(b.path("src/main.lola.lm"));
+    exe.step.dependOn(&comp.step);
     b.installArtifact(exe);
 
     const run_exe = b.addSystemCommand(&.{ "w4", "run-native" });
