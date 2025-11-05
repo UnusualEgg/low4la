@@ -17,13 +17,24 @@ pub fn build(b: *std.Build) !void {
     lola.optimize = optimize;
     lola.resolved_target = target;
 
+    const wasm4_mod = b.createModule(.{
+        .root_source_file = b.path("src/wasm4.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{},
+        .single_threaded = true,
+    });
     const exe_mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
         .imports = &.{},
+        .single_threaded = true,
+        .error_tracing = true,
     });
     exe_mod.addImport("lola", lola);
+    exe_mod.addImport("wasm4", wasm4_mod);
+    lola.addImport("wasm4", wasm4_mod);
 
     const exe = b.addExecutable(.{
         .name = "cart",

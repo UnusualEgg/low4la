@@ -3,8 +3,8 @@
     .version = "0.15.1",
     .dependencies = .{
         .lola = .{
-            .url = "git+https://github.com/UnusualEgg/LoLa#61c4764a00e958542dc52c6f68a5bc4c840930c9",
-            .hash = "lola-0.1.0-zO-wvW64bQFVucrvtUTfXoyvuuJfujukGjq1tUAaLH8u",
+            .url = "git+https://github.com/UnusualEgg/LoLa.git#94c007fb37e3954e86000c7a5f7aa56ed1f1c6d4",
+            .hash = "lola-0.1.0-zO-wvXa4bQGgwRZEeGEulySLG1B7ox7gnluBIdfrwGfP",
         },
     },
     .paths = .{""},
