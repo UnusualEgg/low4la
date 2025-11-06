@@ -24,6 +24,8 @@ pub fn build(b: *std.Build) !void {
         .imports = &.{},
         .single_threaded = true,
     });
+    const salloc_dep = b.dependency("staticalloc", .{ .target = target, .optimize = optimize });
+    const salloc_mod = salloc_dep.module("staticalloc");
     const exe_mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
@@ -34,6 +36,7 @@ pub fn build(b: *std.Build) !void {
     });
     exe_mod.addImport("lola", lola);
     exe_mod.addImport("wasm4", wasm4_mod);
+    exe_mod.addImport("salloc", salloc_mod);
     lola.addImport("wasm4", wasm4_mod);
 
     const exe = b.addExecutable(.{

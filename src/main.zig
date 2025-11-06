@@ -1,6 +1,7 @@
 const std = @import("std");
 const w4 = @import("wasm4");
 const lola = @import("lola");
+const salloc = @import("salloc");
 
 pub const libs = struct {
     const array = @import("libs/array.zig");
@@ -11,9 +12,12 @@ pub const libs = struct {
     const w4 = @import("libs/w4.zig");
 };
 
-var global_buffer: [0x5348]u8 = undefined;
-var buf_alloc: std.heap.FixedBufferAllocator = std.heap.FixedBufferAllocator.init(&global_buffer);
-var logging_alloc: LoggingAlloc(buf_alloc.allocator()) = undefined;
+const SALLOC_SIZE: usize = (16 * 1024) - @sizeOf(PoolType) - @sizeOf(@TypeOf(env)) - @sizeOf(@TypeOf(vm));
+var global_buffer: [SALLOC_SIZE]u8 = undefined;
+const VALLOC = std.mem.ValidationAllocator(SALLOC);
+const SALLOC = salloc.SAlloc(); //16KB
+var salloc_alloc: SALLOC = undefined;
+var valloc_alloc: VALLOC = undefined;
 var alloc: std.mem.Allocator = undefined;
 
 // var diag: lola.compiler.Diagnostics = undefined;
@@ -52,6 +56,7 @@ fn compile() !void {
     // }
 
     vm = try lola.runtime.vm.VM.init(alloc, &env);
+    std.log.info("HereBeCode {*}", .{env.compileUnit.code.ptr});
 }
 fn LoggingAlloc(inner_alloc: std.mem.Allocator) type {
     return struct {
@@ -101,7 +106,9 @@ export fn start() void {
     running = true;
     // logging_alloc = @TypeOf(logging_alloc).init(&output);
     // alloc = logging_alloc.get();
-    alloc = buf_alloc.allocator();
+
+    valloc_alloc.underlying_allocator.init(&global_buffer);
+    alloc = valloc_alloc.allocator();
 
     compile() catch |err| {
         output.print("compile error: {s}\n", .{@errorName(err)}) catch unreachable;

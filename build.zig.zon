@@ -6,6 +6,12 @@
             .url = "git+https://github.com/UnusualEgg/LoLa.git#94c007fb37e3954e86000c7a5f7aa56ed1f1c6d4",
             .hash = "lola-0.1.0-zO-wvXa4bQGgwRZEeGEulySLG1B7ox7gnluBIdfrwGfP",
         },
+        .staticalloc = .{
+            //TEMP
+            // .url = "git+https://github.com/unusualegg/staticalloc.git#00b60cb02295ed51412a504a58dbd50849233d0c",
+            // .hash = "staticalloc-1.0.0-DdHz1r8kAADCvkwXTOknTbvDxNHHbY9wl1pepybSGbCU",
+            .path = "staticalloc",
+        },
     },
     .paths = .{""},
     .fingerprint = 0xf3e12e12759200f8,
