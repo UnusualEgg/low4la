@@ -15,7 +15,7 @@ pub const libs = struct {
 const SALLOC_SIZE: usize = (16 * 1024) - @sizeOf(PoolType) - @sizeOf(@TypeOf(env)) - @sizeOf(@TypeOf(vm));
 var global_buffer: [SALLOC_SIZE]u8 = undefined;
 const VALLOC = std.mem.ValidationAllocator(SALLOC);
-const SALLOC = salloc.SAlloc(); //16KB
+const SALLOC = salloc.SAlloc; //16KB
 var salloc_alloc: SALLOC = undefined;
 var valloc_alloc: VALLOC = undefined;
 var alloc: std.mem.Allocator = undefined;
@@ -27,7 +27,7 @@ pub const PoolType = lola.runtime.objects.ObjectPool([_]type{
     libs.w4.Gamepad,
 });
 var pool: PoolType = undefined;
-// var compile_unit: lola.CompileUnit = undefined;
+var compile_unit: lola.CompileUnit = undefined;
 var env: lola.runtime.Environment = undefined;
 var vm: lola.runtime.vm.VM = undefined;
 fn compile() !void {
@@ -35,18 +35,17 @@ fn compile() !void {
     const src = @embedFile(main_lola);
 
     var reader = std.Io.Reader.fixed(src);
-    const compile_unit = try lola.CompileUnit.loadFromStream(alloc, &reader);
-    defer compile_unit.deinit();
+    compile_unit = try lola.CompileUnit.loadFromStream(alloc, &reader);
 
     pool = PoolType.init(alloc);
 
     env = try lola.runtime.Environment.init(alloc, &compile_unit, pool.interface());
     try env.installFunction("Print", .initSimpleUser(api.print));
 
-    // try env.installModule(libs.array, lola.runtime.Context.null_pointer);
-    // try env.installModule(libs.math, lola.runtime.Context.null_pointer);
-    // try env.installModule(libs.string, lola.runtime.Context.null_pointer);
-    // try env.installModule(libs.runtime, lola.runtime.Context.null_pointer);
+    try env.installModule(libs.array, lola.runtime.Context.null_pointer);
+    try env.installModule(libs.math, lola.runtime.Context.null_pointer);
+    try env.installModule(libs.string, lola.runtime.Context.null_pointer);
+    try env.installModule(libs.runtime, lola.runtime.Context.null_pointer);
     try env.installModule(libs.stdlib, lola.runtime.Context.null_pointer);
     try env.installModule(libs.w4, lola.runtime.Context.null_pointer);
 
@@ -56,7 +55,6 @@ fn compile() !void {
     // }
 
     vm = try lola.runtime.vm.VM.init(alloc, &env);
-    std.log.info("HereBeCode {*}", .{env.compileUnit.code.ptr});
 }
 fn LoggingAlloc(inner_alloc: std.mem.Allocator) type {
     return struct {
@@ -245,6 +243,7 @@ const api = struct {
                 else => try output.print("{f}", .{value}),
             }
         }
+        output.flush() catch unreachable;
         return .void;
     }
     pub fn Wait(exec_env: *lola.runtime.Environment, call_context: lola.runtime.Context, args: []const lola.runtime.value.Value) anyerror!lola.runtime.AsyncFunctionCall {
