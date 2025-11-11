@@ -10,21 +10,23 @@ pub const libs = struct {
     const runtime = @import("libs/runtime.zig");
     const string = @import("libs/string.zig");
     const w4 = @import("libs/w4.zig");
+    const byte_array = @import("libs/byte_array.zig");
 };
 
-const SALLOC_SIZE: usize = (16 * 1024) - @sizeOf(PoolType) - @sizeOf(@TypeOf(env)) - @sizeOf(@TypeOf(vm));
+const SALLOC_SIZE: usize = (30 * 1024) - @sizeOf(PoolType) - @sizeOf(@TypeOf(env)) - @sizeOf(@TypeOf(vm)) - @sizeOf(@TypeOf(compile_unit));
 var global_buffer: [SALLOC_SIZE]u8 = undefined;
 const VALLOC = std.mem.ValidationAllocator(SALLOC);
 const SALLOC = salloc.SAlloc; //16KB
 var salloc_alloc: SALLOC = undefined;
-var valloc_alloc: VALLOC = undefined;
+// var valloc_alloc: VALLOC = undefined;
 var alloc: std.mem.Allocator = undefined;
 
 // var diag: lola.compiler.Diagnostics = undefined;
 pub const PoolType = lola.runtime.objects.ObjectPool([_]type{
-    libs.runtime.LoLaDictionary,
-    libs.runtime.LoLaList,
+    // libs.runtime.LoLaDictionary,
+    // libs.runtime.LoLaList,
     libs.w4.Gamepad,
+    libs.byte_array.ByteArray,
 });
 var pool: PoolType = undefined;
 var compile_unit: lola.CompileUnit = undefined;
@@ -41,13 +43,19 @@ fn compile() !void {
 
     env = try lola.runtime.Environment.init(alloc, &compile_unit, pool.interface());
     try env.installFunction("Print", .initSimpleUser(api.print));
+    try env.installFunction("Wait", .{ .asyncUser = .{
+        .call = api.Wait,
+        .context = lola.runtime.Context.null_pointer,
+        .destructor = null,
+    } });
 
-    try env.installModule(libs.array, lola.runtime.Context.null_pointer);
+    // try env.installModule(libs.array, lola.runtime.Context.null_pointer);
     try env.installModule(libs.math, lola.runtime.Context.null_pointer);
-    try env.installModule(libs.string, lola.runtime.Context.null_pointer);
-    try env.installModule(libs.runtime, lola.runtime.Context.null_pointer);
-    try env.installModule(libs.stdlib, lola.runtime.Context.null_pointer);
+    // try env.installModule(libs.string, lola.runtime.Context.null_pointer);
+    // try env.installModule(libs.runtime, lola.runtime.Context.null_pointer);
+    // try env.installModule(libs.stdlib, lola.runtime.Context.null_pointer);
     try env.installModule(libs.w4, lola.runtime.Context.null_pointer);
+    try env.installModule(libs.byte_array, lola.runtime.Context.null_pointer);
 
     // inline for (@typeInfo(libs).@"struct".fields) |field| {
     //     // output.print("adding {}\n", .{field.name}) catch unreachable;
@@ -105,8 +113,9 @@ export fn start() void {
     // logging_alloc = @TypeOf(logging_alloc).init(&output);
     // alloc = logging_alloc.get();
 
-    valloc_alloc.underlying_allocator.init(&global_buffer);
-    alloc = valloc_alloc.allocator();
+    // valloc_alloc.underlying_allocator.init(&global_buffer);
+    salloc_alloc.init(&global_buffer);
+    alloc = salloc_alloc.allocator();
 
     compile() catch |err| {
         output.print("compile error: {s}\n", .{@errorName(err)}) catch unreachable;
@@ -142,7 +151,12 @@ fn trace_writer(buffer: []u8) std.Io.Writer {
 }
 var trace_buffer: [1024]u8 = undefined;
 var output = trace_writer(&trace_buffer);
+var first: bool = false;
 fn run() !void {
+    if (!first) {
+        output.print("bytes free {}\n", .{salloc_alloc.count_free()}) catch unreachable;
+        first = true;
+    }
     // const limit = 100;
 
     const result = vm.execute(null) catch |err| {
@@ -246,41 +260,18 @@ const api = struct {
         output.flush() catch unreachable;
         return .void;
     }
-    pub fn Wait(exec_env: *lola.runtime.Environment, call_context: lola.runtime.Context, args: []const lola.runtime.value.Value) anyerror!lola.runtime.AsyncFunctionCall {
+    pub fn Wait(_: *lola.runtime.Environment, call_context: lola.runtime.Context, args: []const lola.runtime.value.Value) anyerror!lola.runtime.AsyncFunctionCall {
         _ = call_context;
 
         if (args.len != 0)
             return error.InvalidArgs;
 
-        const YieldContext = struct {
-            allocator: std.mem.Allocator,
-            end: bool,
-        };
-
-        const ptr = try exec_env.allocator.create(YieldContext);
-        ptr.* = YieldContext{
-            .allocator = exec_env.allocator,
-            .end = false,
-        };
-
         return lola.runtime.AsyncFunctionCall{
-            .context = lola.runtime.Context.make(*YieldContext, ptr),
-            .destructor = struct {
-                fn dtor(exec_context: lola.runtime.Context) void {
-                    const ctx = exec_context.cast(*YieldContext);
-                    ctx.allocator.destroy(ctx);
-                }
-            }.dtor,
+            .context = lola.runtime.Context.null_pointer,
+            .destructor = null,
             .execute = struct {
-                fn execute(exec_context: lola.runtime.Context) anyerror!?lola.runtime.value.Value {
-                    const ctx = exec_context.cast(*YieldContext);
-
-                    if (ctx.end) {
-                        return .void;
-                    } else {
-                        ctx.end = true;
-                        return null;
-                    }
+                fn execute(_: lola.runtime.Context) anyerror!?lola.runtime.value.Value {
+                    return .void;
                 }
             }.execute,
         };

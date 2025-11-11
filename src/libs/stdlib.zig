@@ -1,24 +1,6 @@
 const std = @import("std");
 const lola = @import("lola");
 
-pub fn Wait(env: *lola.runtime.Environment, call_context: lola.runtime.Context, args: []const lola.runtime.value.Value) anyerror!lola.runtime.AsyncFunctionCall {
-    _ = call_context;
-    _ = env;
-
-    if (args.len != 0)
-        return error.InvalidArgs;
-
-    return lola.runtime.AsyncFunctionCall{
-        .context = lola.runtime.Context.null_pointer,
-        .destructor = null,
-        .execute = struct {
-            fn execute(_: lola.runtime.Context) anyerror!?lola.runtime.value.Value {
-                return .void;
-            }
-        }.execute,
-    };
-}
-
 pub fn TypeOf(env: *const lola.runtime.Environment, context: lola.runtime.Context, args: []const lola.runtime.value.Value) !lola.runtime.value.Value {
     _ = context;
     if (args.len != 1)
