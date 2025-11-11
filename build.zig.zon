@@ -7,10 +7,8 @@
             .hash = "lola-0.1.0-zO-wvXa4bQGgwRZEeGEulySLG1B7ox7gnluBIdfrwGfP",
         },
         .staticalloc = .{
-            //TEMP
-            // .url = "git+https://github.com/unusualegg/staticalloc.git#00b60cb02295ed51412a504a58dbd50849233d0c",
-            // .hash = "staticalloc-1.0.0-DdHz1r8kAADCvkwXTOknTbvDxNHHbY9wl1pepybSGbCU",
-            .path = "staticalloc",
+            .url = "git+https://github.com/unusualegg/staticalloc/?ref=HEAD#71ce95904eac54347754a27f90c64ab119a13f99",
+            .hash = "staticalloc-1.0.0-DdHz1qk-AACV57Spj1T2nnPPUISTdYNaCOlEJY3dO5vN",
         },
     },
     .paths = .{""},
