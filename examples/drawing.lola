@@ -1,0 +1,106 @@
+SetPalette([0x002b59,0x005f8c,0x00b9be,0x9ff4e5]);
+var x = 8;
+var y = 8;
+var gp = GetGamepad(0);
+
+var color = 1;
+var color_under = 0;
+Poke1(0x1f,1); //no preserve framebuffer
+clear_screen();
+while (true) {
+    gp.Update();
+    if (gp.Button2()) {
+        if (gp.ButtonRight()) {
+            color = 0;
+            set_pixel(x,y,color);
+        }
+        if (gp.ButtonDown()) {
+            color = 1;
+            set_pixel(x,y,color);
+        }
+        if (gp.ButtonLeft()) {
+            color = 2;
+            set_pixel(x,y,color);
+        }
+        if (gp.ButtonUp()) {
+            color = 3;
+            set_pixel(x,y,color);
+        }
+        //clear screen
+        if (gp.Button1()) {
+            clear_screen();
+        }
+    } else {
+        if (gp.ButtonRight()) {
+            set_pixel(x,y,color_under);
+            x += 1;
+            if (x==160) x=0;
+            color_under = get_pixel(x,y);
+            set_pixel(x,y,color);
+        }
+        if (gp.ButtonLeft()) {
+            set_pixel(x,y,color_under);
+            x -= 1;
+            if (x==-1) x=159;
+            color_under = get_pixel(x,y);
+            set_pixel(x,y,color);
+        }
+        if (gp.ButtonUp()) {
+            set_pixel(x,y,color_under);
+            y -= 1;
+            if (y==-1) y=159;
+            color_under = get_pixel(x,y);
+            set_pixel(x,y,color);
+        }
+        if (gp.ButtonDown()) {
+            set_pixel(x,y,color_under);
+            y += 1;
+            if (y==160) y=0;
+            color_under = get_pixel(x,y);
+            set_pixel(x,y,color);
+        }
+        if (gp.Button1()) {
+            set_pixel(x,y,color);
+            color_under = color;
+            set_pixel(x,y,color);
+        }
+    }
+
+    Wait();
+}
+function get_pixel(x,y) {
+    const index = (x+(y*160))/4;
+    const shift = Pow(2,(x%4)*2);
+    return Floor(Peek1(0xa0+index)/shift)%4;
+}
+function set_pixel(x,y,color) {
+    const index = Floor((x+(y*160))/4);
+    const shift = x%4;
+    const p = Peek1(0xa0+index);
+    var p1 = p%4;
+    var p2 = Floor(p/4) % 4;
+    var p3 = Floor(p/16) % 4;
+    var p4 = Floor(p/64) % 4;
+    if (shift==0)
+        p1 = color;
+    if (shift==1)
+        p2 = color;
+    if (shift==2) 
+        p3 = color;
+    if (shift==3)
+        p4 = color;
+    
+    Poke1(index+0xa0,(p4*64)+(p3*16)+(p2*4)+(p1));
+}
+function clear_screen() {
+    //the screen is 160*160 but has 4 pixels in a byte
+    //so the framebuffer is 6400 bytes long
+    //but if we write 0 to each byte, then it writes 0 to each of the 4 pixels
+    var i = 0;
+    while (i<6400) {
+        Poke1(0xa0+i,0);
+        i+=1;
+    }
+    //diplay the marker
+    set_pixel(x,y,color);
+}

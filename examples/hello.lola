@@ -1,0 +1,20 @@
+const smiley="\xc3\x81\x24\x24\x00\x24\x99\xc3";
+
+//0 is first gamepad
+const gamepad = GetGamepad(0);
+while (true) {
+    DrawColors(2);
+    Text("Hello from LoLa!",10,10);
+
+    //get the value form memory
+    gamepad.Update();
+    if (gamepad.Button1()) {
+        DrawColors(4);
+    }
+
+    //false=1bp
+    //true=2bpp
+    Blit(smiley, 76, 76, 8, 8, false);
+    Text("Press X to blink", 16, 90);
+    Wait();
+}

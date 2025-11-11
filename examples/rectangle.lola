@@ -1,0 +1,6 @@
+while (true) {
+    //draw a square at 10,10 with a size of 32
+    Rect(10, 10, 32, 32);
+    //draw the frame then continue looping
+    Wait();
+}
