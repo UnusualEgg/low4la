@@ -2,6 +2,7 @@ const std = @import("std");
 const w4 = @import("wasm4");
 const lola = @import("lola");
 const salloc = @import("salloc");
+const opts = @import("build_opts");
 
 pub const libs = struct {
     const array = @import("libs/array.zig");
@@ -23,11 +24,13 @@ var alloc: std.mem.Allocator = undefined;
 
 // var diag: lola.compiler.Diagnostics = undefined;
 pub const PoolType = lola.runtime.objects.ObjectPool([_]type{
-    // libs.runtime.LoLaDictionary,
-    // libs.runtime.LoLaList,
     libs.w4.Gamepad,
+} ++ if (opts.runtime) .{
+    libs.runtime.LoLaDictionary,
+    libs.runtime.LoLaList,
+} else .{} ++ if (opts.byte_array) .{
     libs.byte_array.ByteArray,
-});
+} else .{});
 var pool: PoolType = undefined;
 var compile_unit: lola.CompileUnit = undefined;
 var env: lola.runtime.Environment = undefined;
@@ -49,18 +52,20 @@ fn compile() !void {
         .destructor = null,
     } });
 
-    // try env.installModule(libs.array, lola.runtime.Context.null_pointer);
-    try env.installModule(libs.math, lola.runtime.Context.null_pointer);
-    // try env.installModule(libs.string, lola.runtime.Context.null_pointer);
-    // try env.installModule(libs.runtime, lola.runtime.Context.null_pointer);
-    // try env.installModule(libs.stdlib, lola.runtime.Context.null_pointer);
-    try env.installModule(libs.w4, lola.runtime.Context.null_pointer);
-    try env.installModule(libs.byte_array, lola.runtime.Context.null_pointer);
+    if (opts.array)
+        try env.installModule(libs.array, lola.runtime.Context.null_pointer);
+    if (opts.math)
+        try env.installModule(libs.math, lola.runtime.Context.null_pointer);
+    if (opts.string)
+        try env.installModule(libs.string, lola.runtime.Context.null_pointer);
+    if (opts.runtime)
+        try env.installModule(libs.runtime, lola.runtime.Context.null_pointer);
+    if (opts.stdlib)
+        try env.installModule(libs.stdlib, lola.runtime.Context.null_pointer);
+    if (opts.byte_array)
+        try env.installModule(libs.byte_array, lola.runtime.Context.null_pointer);
 
-    // inline for (@typeInfo(libs).@"struct".fields) |field| {
-    //     // output.print("adding {}\n", .{field.name}) catch unreachable;
-    //     try env.installModule(field.type, lola.runtime.Context.null_pointer);
-    // }
+    try env.installModule(libs.w4, lola.runtime.Context.null_pointer);
 
     vm = try lola.runtime.vm.VM.init(alloc, &env);
 }

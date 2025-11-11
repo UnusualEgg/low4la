@@ -39,6 +39,16 @@ pub fn build(b: *std.Build) !void {
     exe_mod.addImport("salloc", salloc_mod);
     lola.addImport("wasm4", wasm4_mod);
 
+    const opts = b.addOptions();
+    opts.addOption(bool, "math", b.option(bool, "math", "enable the math module") orelse false);
+    opts.addOption(bool, "stdlib", b.option(bool, "stdlib", "enable the stdlib module") orelse false);
+    opts.addOption(bool, "runtime", b.option(bool, "runtime", "enable the runtime module") orelse false);
+    opts.addOption(bool, "string", b.option(bool, "string", "enable the string module") orelse false);
+    opts.addOption(bool, "byte_array", b.option(bool, "byte_array", "enable the bytearray module") orelse false);
+    opts.addOption(bool, "array", b.option(bool, "array", "enable the array module") orelse false);
+    const opts_mod = opts.createModule();
+    exe_mod.addImport("build_opts", opts_mod);
+
     const exe = b.addExecutable(.{
         .name = "cart",
         .root_module = exe_mod,
