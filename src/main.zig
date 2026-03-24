@@ -188,6 +188,12 @@ fn run() !void {
         .exhausted => unreachable,
         .paused => {},
     }
+    // vm.serialize(env., stream: anytype)
+    if (w4.GAMEPAD2.* & w4.BUTTON_1 != 0) {
+        // var buf:[6137]u8=undefined;
+        // std.
+        // env.serialize();
+    }
 }
 export fn update() void {
     if (running) {
