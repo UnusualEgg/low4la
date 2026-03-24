@@ -3,8 +3,8 @@
     .version = "0.15.1",
     .dependencies = .{
         .lola = .{
-            .url = "git+https://github.com/UnusualEgg/LoLa.git#94c007fb37e3954e86000c7a5f7aa56ed1f1c6d4",
-            .hash = "lola-0.1.0-zO-wvXa4bQGgwRZEeGEulySLG1B7ox7gnluBIdfrwGfP",
+            .url = "git+https://github.com/ikskuh/LoLa/?ref=HEAD#9f225feb2b94e5c90bff56a3157a64ce4f850e81",
+            .hash = "lola-0.1.0-zO-wvbCVbQEhYgqtx62NAPnrU6OY-PKcjAMBKIi2i2f1",
         },
         .staticalloc = .{
             .url = "git+https://github.com/unusualegg/staticalloc/?ref=HEAD#71ce95904eac54347754a27f90c64ab119a13f99",

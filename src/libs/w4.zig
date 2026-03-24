@@ -58,11 +58,11 @@ pub const Gamepad = struct {
     pub fn destroyObject(self: *Self) void {
         self.allocator.destroy(self);
     }
-    pub fn serializeObject(writer: lola.runtime.objects.OutputStream.Writer, object: *Self) !void {
+    pub fn serializeObject(writer: *std.Io.Writer, object: *Self) !void {
         try writer.writeByte(object.index);
         try writer.writeByte(object.contents);
     }
-    pub fn deserializeObject(allocator: std.mem.Allocator, reader: lola.runtime.objects.InputStream.Reader) !*Self {
+    pub fn deserializeObject(allocator: std.mem.Allocator, reader: *std.Io.Reader) !*Self {
         const gamepad = try allocator.create(Self);
         gamepad.init(
             @truncate(try reader.takeByte()),
