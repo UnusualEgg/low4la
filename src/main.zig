@@ -14,15 +14,24 @@ pub const libs = struct {
     const byte_array = @import("libs/byte_array.zig");
 };
 
-const SALLOC_SIZE: usize = (30 * 1024) - @sizeOf(PoolType) - @sizeOf(@TypeOf(env)) - @sizeOf(@TypeOf(vm)) - @sizeOf(@TypeOf(compile_unit));
-var global_buffer: [SALLOC_SIZE]u8 = undefined;
-const VALLOC = std.mem.ValidationAllocator(SALLOC);
-const SALLOC = salloc.SAlloc; //16KB
-var salloc_alloc: SALLOC = undefined;
-// var valloc_alloc: VALLOC = undefined;
-var alloc: std.mem.Allocator = undefined;
+const State = struct {
+    salloc_alloc: SALLOC = undefined,
+    alloc: std.mem.Allocator = undefined,
+    pool: PoolType = undefined,
+    compile_unit: lola.CompileUnit = undefined,
+    env: lola.runtime.Environment = undefined,
+    vm: lola.runtime.VM = undefined,
 
-// var diag: lola.compiler.Diagnostics = undefined;
+    running: bool = undefined,
+    trace_buffer: [1024]u8 = undefined,
+    output: std.Io.Writer = undefined,
+    first: bool = false,
+};
+var state: State = .{};
+// const VALLOC = std.mem.ValidationAllocator(SALLOC);
+const SALLOC = salloc.SAlloc;
+// var valloc_alloc: VALLOC = undefined;
+
 pub const PoolType = lola.runtime.objects.ObjectPool([_]type{
     libs.w4.Gamepad,
 } ++ if (opts.runtime) .{
@@ -31,43 +40,35 @@ pub const PoolType = lola.runtime.objects.ObjectPool([_]type{
 } else .{} ++ if (opts.byte_array) .{
     libs.byte_array.ByteArray,
 } else .{});
-var pool: PoolType = undefined;
-var compile_unit: lola.CompileUnit = undefined;
-var env: lola.runtime.Environment = undefined;
-var vm: lola.runtime.vm.VM = undefined;
+
 fn compile() !void {
     const main_lola = "main.lola.lm";
     const src = @embedFile(main_lola);
 
     var reader = std.Io.Reader.fixed(src);
-    compile_unit = try lola.CompileUnit.loadFromStream(alloc, &reader);
+    state.compile_unit = try lola.CompileUnit.loadFromStream(state.alloc, &reader);
 
-    pool = PoolType.init(alloc);
+    state.pool = PoolType.init(state.alloc);
 
-    env = try lola.runtime.Environment.init(alloc, &compile_unit, pool.interface());
-    try env.installFunction("Print", .initSimpleUser(api.print));
-    try env.installFunction("Wait", .{ .asyncUser = .{
-        .call = api.Wait,
-        .context = lola.runtime.Context.null_pointer,
-        .destructor = null,
-    } });
+    state.env = try lola.runtime.Environment.init(state.alloc, &state.compile_unit, state.pool.interface());
+    try state.env.installModule(api, .null_pointer);
 
     if (opts.array)
-        try env.installModule(libs.array, lola.runtime.Context.null_pointer);
+        try state.env.installModule(libs.array, lola.runtime.Context.null_pointer);
     if (opts.math)
-        try env.installModule(libs.math, lola.runtime.Context.null_pointer);
+        try state.env.installModule(libs.math, lola.runtime.Context.null_pointer);
     if (opts.string)
-        try env.installModule(libs.string, lola.runtime.Context.null_pointer);
+        try state.env.installModule(libs.string, lola.runtime.Context.null_pointer);
     if (opts.runtime)
-        try env.installModule(libs.runtime, lola.runtime.Context.null_pointer);
+        try state.env.installModule(libs.runtime, lola.runtime.Context.null_pointer);
     if (opts.stdlib)
-        try env.installModule(libs.stdlib, lola.runtime.Context.null_pointer);
+        try state.env.installModule(libs.stdlib, lola.runtime.Context.null_pointer);
     if (opts.byte_array)
-        try env.installModule(libs.byte_array, lola.runtime.Context.null_pointer);
+        try state.env.installModule(libs.byte_array, lola.runtime.Context.null_pointer);
 
-    try env.installModule(libs.w4, lola.runtime.Context.null_pointer);
+    try state.env.installModule(libs.w4, lola.runtime.Context.null_pointer);
 
-    vm = try lola.runtime.vm.VM.init(alloc, &env);
+    state.vm = try lola.runtime.vm.VM.init(state.alloc, &state.env);
 }
 fn LoggingAlloc(inner_alloc: std.mem.Allocator) type {
     return struct {
@@ -114,21 +115,19 @@ fn LoggingAlloc(inner_alloc: std.mem.Allocator) type {
     };
 }
 export fn start() void {
-    running = true;
-    // logging_alloc = @TypeOf(logging_alloc).init(&output);
-    // alloc = logging_alloc.get();
+    state.output = trace_writer(&state.trace_buffer);
 
-    // valloc_alloc.underlying_allocator.init(&global_buffer);
-    salloc_alloc.init(&global_buffer);
-    alloc = salloc_alloc.allocator();
+    state.running = true;
+
+    state.salloc_alloc.initWithFreeMem(State, &state);
+    state.alloc = state.salloc_alloc.allocator();
 
     compile() catch |err| {
-        output.print("compile error: {s}\n", .{@errorName(err)}) catch unreachable;
-        output.flush() catch unreachable;
-        running = false;
+        state.output.print("compile error: {s}\n", .{@errorName(err)}) catch unreachable;
+        state.output.flush() catch unreachable;
+        state.running = false;
     };
 }
-var running: bool = undefined;
 fn drain_trace(w: *std.Io.Writer, data: []const []const u8, splat: usize) std.Io.Writer.Error!usize {
     if (w.end > 0) {
         w4.trace(w.buffered());
@@ -154,32 +153,30 @@ fn trace_writer(buffer: []u8) std.Io.Writer {
         .buffer = buffer,
     };
 }
-var trace_buffer: [1024]u8 = undefined;
-var output = trace_writer(&trace_buffer);
-var first: bool = false;
+
 fn run() !void {
-    if (!first) {
-        output.print("bytes free {}\n", .{salloc_alloc.count_free()}) catch unreachable;
-        first = true;
+    if (!state.first) {
+        state.output.print("bytes free {}\n", .{state.salloc_alloc.count_free()}) catch unreachable;
+        state.first = true;
     }
     // const limit = 100;
 
-    const result = vm.execute(null) catch |err| {
-        output.print("Panic during execution: {s}\n", .{@errorName(err)}) catch unreachable;
-        output.print("Call stack:\n", .{}) catch unreachable;
+    const result = state.vm.execute(null) catch |err| {
+        state.output.print("Panic during execution: {s}\n", .{@errorName(err)}) catch unreachable;
+        state.output.print("Call stack:\n", .{}) catch unreachable;
 
-        vm.printStackTrace(&output) catch {
+        state.vm.printStackTrace(&state.output) catch {
             w4.trace("can't print stack trace\n");
         };
         return error.VMError;
     };
 
-    pool.clearUsageCounters();
+    state.pool.clearUsageCounters();
 
-    try pool.walkEnvironment(env);
-    try pool.walkVM(vm);
+    try state.pool.walkEnvironment(state.env);
+    try state.pool.walkVM(state.vm);
 
-    pool.collectGarbage();
+    state.pool.collectGarbage();
 
     switch (result) {
         .completed => {
@@ -188,35 +185,22 @@ fn run() !void {
         .exhausted => unreachable,
         .paused => {},
     }
-    // vm.serialize(env., stream: anytype)
-    if (w4.GAMEPAD2.* & w4.BUTTON_1 != 0) {
-        // var buf:[6137]u8=undefined;
-        // std.
-        // env.serialize();
-    }
 }
 export fn update() void {
-    if (running) {
+    if (state.running) {
         run() catch |err| {
-            output.print("error: {s}\n", .{@errorName(err)}) catch unreachable;
-            running = false;
-            output.flush() catch unreachable;
+            state.output.print("error: {s}\n", .{@errorName(err)}) catch unreachable;
+            state.running = false;
+            state.output.print("bytes free: {}\n", .{state.salloc_alloc.count_free()}) catch unreachable;
+            if (@errorReturnTrace()) |trace| {
+                state.output.print("{f}\n", .{trace}) catch unreachable;
+            }
+            state.output.flush() catch unreachable;
         };
-        // w4.trace("frame\n");
     } else {
         w4.DRAW_COLORS.* = 2;
         w4.text("Program has ended", 0, 0);
     }
-    // w4.DRAW_COLORS.* = 2;
-    // w4.text("Hello from Zig!", 10, 10);
-
-    // const gamepad = w4.GAMEPAD1.*;
-    // if (gamepad & w4.BUTTON_1 != 0) {
-    //     w4.DRAW_COLORS.* = 4;
-    // }
-
-    // w4.blit(&smiley, 76, 76, 8, 8, w4.BLIT_1BPP);
-    // w4.text("Press X to blink", 16, 90);
 }
 
 //logging
@@ -233,20 +217,12 @@ pub fn myLogFn(
     comptime format: []const u8,
     args: anytype,
 ) void {
-    // Ignore all non-error logging from sources other than
-    // .my_project, .nice_library and the default
-    const scope_prefix = "(" ++ switch (scope) {
-        .my_project, .nice_library, std.log.default_log_scope => @tagName(scope),
-        else => if (@intFromEnum(level) <= @intFromEnum(std.log.Level.err))
-            @tagName(scope)
-        else
-            return,
-    } ++ "): ";
+    const scope_prefix = "(" ++ @tagName(scope) ++ "): ";
 
     const prefix = "[" ++ comptime level.asText() ++ "] " ++ scope_prefix;
 
-    // Print the message to stderr, silently ignoring any errors
-    nosuspend output.print(prefix ++ format ++ "\n", args) catch return;
+    // Print the message, silently ignoring any errors
+    nosuspend state.output.print(prefix ++ format ++ "\n", args) catch return;
 }
 
 //api
@@ -254,8 +230,7 @@ const api = struct {
     const Environment = lola.runtime.Environment;
     const Context = lola.runtime.Context;
     const Value = lola.runtime.value.Value;
-    // lola.runtime.Environment.UserFunctionCall
-    fn print(
+    pub fn Print(
         environment: *Environment,
         context: Context,
         args: []const Value,
@@ -264,11 +239,11 @@ const api = struct {
         _ = context;
         for (args) |value| {
             switch (value) {
-                .string => |str| output.writeAll(str.contents) catch unreachable,
-                else => try output.print("{f}", .{value}),
+                .string => |str| state.output.writeAll(str.contents) catch unreachable,
+                else => try state.output.print("{f}", .{value}),
             }
         }
-        output.flush() catch unreachable;
+        state.output.flush() catch unreachable;
         return .void;
     }
     pub fn Wait(_: *lola.runtime.Environment, call_context: lola.runtime.Context, args: []const lola.runtime.value.Value) anyerror!lola.runtime.AsyncFunctionCall {
